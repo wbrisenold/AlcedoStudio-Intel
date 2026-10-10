@@ -47,6 +47,7 @@ jobs:
           mkdir -p upstream/scripts/intel_port
           cp scripts/intel_port/*.py upstream/scripts/intel_port/
           python3 scripts/intel_port/apply_port.py --root upstream
+          python3 scripts/intel_port/patch_verify_sidecar.py --root upstream
       - name: Download permanent reusable Metal release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -92,7 +93,9 @@ jobs:
             -DALCEDO_QT_PREFIX="$(brew --prefix qt)" \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix openblas)"
       - name: Build native Intel app without compiling any Metal source
-        run: cmake --build upstream/build/intel-release --target alcedo_main --parallel 4
+        # alcedo_update_installer is installed by the bundle but is not a
+        # dependency of alcedo_main, so package step needs it built explicitly.
+        run: cmake --build upstream/build/intel-release --target alcedo_main alcedo_update_installer --parallel 4
       - name: Package with Alcedo's native macOS install and dependency checks
         run: cmake --build upstream/build/intel-release --target macos_package --parallel 4
       - name: Validate installed Intel-native app bundle

@@ -17,6 +17,7 @@ def load(name):
 
 metal=load('metal_cache')
 patcher=load('apply_port')
+sidecar=load('patch_verify_sidecar')
 
 class PortTests(unittest.TestCase):
     def setUp(self):
@@ -114,5 +115,40 @@ class PortTests(unittest.TestCase):
         (p/metal.MANIFEST).write_text(json.dumps({'schema':1,'platform':'macos','deployment_target':'14.0','libraries':[]}))
         with self.assertRaisesRegex(ValueError,'13.3'):
             metal.verify(self.root,p)
+
+    def test_sidecar_skip_patch_guards_sidecar_checks(self):
+        fixture='''assert_executable "$main_exe"
+assert_executable "$mind_exe"
+assert_executable "$aria2c_exe"
+
+required_files=(
+  "${contents_dir}/Info.plist"
+  "${macos_dir}/configs/prompts/image_analysis_system_prompts.json"
+  "${contents_dir}/Helpers/alcedo_update_installer"
+)
+
+for file in "${required_files[@]}"; do
+  assert_file "$file"
+done
+
+if ! otool -L "$mind_exe" | grep -q '/System/Library/Frameworks/CoreML.framework/'; then
+  fail "semantic sidecar is not linked against CoreML.framework: $mind_exe"
+fi
+
+if otool -L "$mind_exe" | grep -q '@rpath/libswift'; then
+  if ! otool -l "$mind_exe" | grep -q 'path /usr/lib/swift (offset'; then
+    fail "semantic sidecar has @rpath Swift dependencies but no /usr/lib/swift LC_RPATH"
+  fi
+fi
+'''
+        converted=sidecar.patch(fixture)
+        self.assertIn('Intel port builds without the semantic sidecar',converted)
+        self.assertIn('if [[ -x "$mind_exe" ]]; then',converted)
+        self.assertIn('assert_executable "$main_exe"',converted)
+        self.assertIn('"${contents_dir}/Helpers/alcedo_update_installer"',converted)
+        self.assertNotIn('  "${macos_dir}/configs/prompts/image_analysis_system_prompts.json"\n',converted.split('for file in')[0])
+        self.assertIn('assert_file "${macos_dir}/configs/prompts/image_analysis_system_prompts.json"',converted)
+        self.assertIn('otool -L "$mind_exe" | grep -q',converted)
+        with self.assertRaises(RuntimeError): sidecar.patch(converted)
 
 if __name__=='__main__': unittest.main(verbosity=2)

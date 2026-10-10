@@ -34,5 +34,5 @@ cmake -S "$source_dir" -B "$source_dir/build/intel-local" -G Ninja \
     -DPUERHLAB_USE_SYSTEM_GRPC_PROTOBUF=ON \
     -DALCEDO_QT_PREFIX="$qt_root" \
     -DCMAKE_PREFIX_PATH="$qt_root"
-cmake --build "$source_dir/build/intel-local" --target alcedo_main --parallel 4
+cmake --build "$source_dir/build/intel-local" --target alcedo_main alcedo_update_installer --parallel 4
 find "$source_dir/build/intel-local" -type d -name 'AlcedoStudio.app' -print

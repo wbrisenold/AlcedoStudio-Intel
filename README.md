@@ -22,6 +22,7 @@ This repository is an **overlay/launcher** for the upstream [Alcedo Studio](http
 - GPU/model-dependent neural operations may require adaptation/fallback on Intel hardware. This patch does **not** claim to fix all such runtime issues.
 - The local build still needs **Apple Command Line Tools** (`xcode-select --install`) for C++/Objective-C++ and native Qt dependencies. The cached shaders remove the *Metal shader compiler* requirement, not the normal C++ toolchain.
 - The unsigned/ad-hoc-signed app will not be notarized. No Apple Developer account required for local use, but macOS Gatekeeper may prompt.
+- The Rust semantic sidecar (`alcedo_mind`, AI image analysis / semantic search) is excluded from Intel builds: its ONNX Runtime dependency has no macOS x86_64 binaries (Microsoft dropped them after ORT 1.23). The core app (RAW pipeline, Metal GPU, export, albums) is complete; semantic AI features are absent and packaging checks are patched to skip them.
 
 ## Set up a dedicated GitHub repository
 
