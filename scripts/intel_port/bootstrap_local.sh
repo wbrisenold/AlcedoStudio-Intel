@@ -9,11 +9,8 @@ if [[ ! -d "$dest/.git" ]]; then
 fi
 git -C "$dest" fetch origin "$ref" || :
 git -C "$dest" checkout "$ref"
-git -C "$dest" submodule update --init --recursive \
-  alcedo_studio/src/third_party/lensfun \
-  alcedo_studio/src/third_party/libultrahdr \
-  alcedo_studio/src/third_party/metal-cpp
-git -C "$dest" submodule update --init alcedo_studio/src/third_party/QuickQanava
+# lensfun/metal-cpp have no gitlinks upstream; this script clones everything needed.
+bash "$dest/scripts/ci_prepare_third_party.sh"
 mkdir -p "$dest/scripts/intel_port"
 cp "$here/scripts/intel_port/metal_cache.py" "$here/scripts/intel_port/apply_port.py" "$dest/scripts/intel_port/"
 if ! grep -q 'ALCEDO_PREBUILT_METAL_DIR' "$dest/alcedo_studio/src/metal/CMakeLists.txt"; then

@@ -41,11 +41,9 @@ jobs:
           [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || exit 1
           git clone "https://github.com/${SOURCE_REPOSITORY}.git" upstream
           git -C upstream checkout "$UPSTREAM_REF"
-          git -C upstream submodule update --init --recursive \
-            alcedo_studio/src/third_party/lensfun \
-            alcedo_studio/src/third_party/libultrahdr \
-            alcedo_studio/src/third_party/metal-cpp
-          git -C upstream submodule update --init alcedo_studio/src/third_party/QuickQanava
+          # Upstream never committed gitlinks for lensfun/metal-cpp, so pathspec
+          # submodule inits fail; use upstream's own CI prepare script instead.
+          bash upstream/scripts/ci_prepare_third_party.sh
           mkdir -p upstream/scripts/intel_port
           cp scripts/intel_port/*.py upstream/scripts/intel_port/
           python3 scripts/intel_port/apply_port.py --root upstream
