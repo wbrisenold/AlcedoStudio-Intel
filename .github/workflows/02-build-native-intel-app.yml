@@ -1,0 +1,115 @@
+name: 02 - Build native Intel app (reuse Metal)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repository:
+        description: "Public Alcedo fork to build (owner/repo)"
+        type: string
+        required: true
+        default: "zidage/AlcedoStudio"
+      upstream_ref:
+        description: 'Alcedo source commit/tag (must match unchanged shader inputs)'
+        type: string
+        required: true
+        default: 'd20a14b0c5bc54fac50b163173cb352bfe24be0f'
+      metal_release:
+        description: 'Persistent Metal release tag (blank = newest Intel Metal release)'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  intel-app:
+    name: Alcedo Studio macOS x86_64 — native Qt + Metal
+    runs-on: macos-15-intel
+    timeout-minutes: 180
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone Alcedo and install Intel build integration
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+        run: |
+          [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || exit 1
+          git clone "https://github.com/${SOURCE_REPOSITORY}.git" upstream
+          git -C upstream checkout "$UPSTREAM_REF"
+          git -C upstream submodule update --init --recursive \
+            alcedo_studio/src/third_party/lensfun \
+            alcedo_studio/src/third_party/libultrahdr \
+            alcedo_studio/src/third_party/metal-cpp
+          git -C upstream submodule update --init alcedo_studio/src/third_party/QuickQanava
+          mkdir -p upstream/scripts/intel_port
+          cp scripts/intel_port/*.py upstream/scripts/intel_port/
+          python3 scripts/intel_port/apply_port.py --root upstream
+      - name: Download permanent reusable Metal release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.metal_release }}
+        run: |
+          tag="$REQUESTED_TAG"
+          if [ -z "$tag" ]; then
+            tag="$(gh release list --repo "$REPO" --limit 100 --json tagName \
+              --jq '.[].tagName' | grep '^intel-metal-' | head -1)"
+          fi
+          test -n "$tag" || { echo 'Run workflow 01 to create a reusable Metal release first.'; exit 1; }
+          mkdir -p metal-assets precompiled-metal
+          gh release download "$tag" --repo "$REPO" \
+            --pattern alcedo-intel-metal.zip --dir metal-assets
+          python3 scripts/intel_port/metal_cache.py extract \
+            --archive metal-assets/alcedo-intel-metal.zip --out precompiled-metal
+          python3 scripts/intel_port/metal_cache.py verify \
+            --root upstream --cache precompiled-metal
+      - name: Install native build dependencies
+        run: |
+          brew install cmake ninja qt opencv opencolorio duckdb exiv2 glib \
+            libraw little-cms2 highway openimageio pkg-config xxhash eigen \
+            libomp libarchive grpc protobuf openblas
+      - name: Configure Intel-native Qt application using prebuilt Metal
+        run: |
+          cmake -S upstream -B upstream/build/intel-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.3 \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/upstream/build/intel-package" \
+            -DALCEDO_METAL_SHADER_DEPLOYMENT_TARGET=13.3 \
+            -DALCEDO_PREBUILT_METAL_DIR="$GITHUB_WORKSPACE/precompiled-metal" \
+            -DALCEDO_ENABLE_METAL=ON -DALCEDO_ENABLE_CUDA=OFF \
+            -DALCEDO_ENABLE_WEBGPU=OFF -DALCEDO_MACOS_BUNDLE=ON \
+            -DALCEDO_BUILD_TESTS=OFF \
+            -DALCEDO_REQUIRE_UPDATE_KEY=OFF \
+            -DPUERHLAB_USE_BUNDLED_LIBRAW=ON \
+            -DPUERHLAB_USE_SYSTEM_GRPC_PROTOBUF=ON \
+            -DALCEDO_QT_PREFIX="$(brew --prefix qt)" \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix openblas)"
+      - name: Build native Intel app without compiling any Metal source
+        run: cmake --build upstream/build/intel-release --target alcedo_main --parallel 4
+      - name: Package with Alcedo's native macOS install and dependency checks
+        run: cmake --build upstream/build/intel-release --target macos_package --parallel 4
+      - name: Validate installed Intel-native app bundle
+        run: |
+          set -eu
+          app="$GITHUB_WORKSPACE/upstream/build/intel-package/AlcedoStudio.app"
+          test -d "$app" || { echo "The native installed app bundle was not produced at $app"; exit 1; }
+          exe="$(find "$app/Contents/MacOS" -type f -perm -111 -print -quit)"
+          test -n "$exe" || { echo 'App executable missing'; exit 1; }
+          file "$exe"
+          lipo -archs "$exe" | grep -qw x86_64
+          test -d "$app/Contents/Resources/metallib" || { echo 'Bundled Metal libraries missing'; exit 1; }
+          count="$(find "$app/Contents/Resources/metallib" -name '*.metallib' | wc -l | tr -d ' ')"
+          test "$count" -ge 16 || { echo "Incomplete shader resources: $count"; exit 1; }
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent "$app" dist/AlcedoStudio-Intel-x86_64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlcedoStudio-Intel-x86_64-unnotarized
+          path: dist/AlcedoStudio-Intel-x86_64.zip
+          retention-days: 30

@@ -1,0 +1,73 @@
+name: 01 - Compile Intel Metal once
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repository:
+        description: "Public Alcedo fork to build (owner/repo)"
+        type: string
+        required: true
+        default: "zidage/AlcedoStudio"
+      upstream_ref:
+        description: 'Upstream Alcedo commit/tag (pin this for repeatable builds)'
+        type: string
+        required: true
+        default: 'd20a14b0c5bc54fac50b163173cb352bfe24be0f'
+
+permissions:
+  contents: write
+
+jobs:
+  compile-intel-metal:
+    name: Create reusable x86_64-compatible .metallib pack
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Intel port scripts
+        uses: actions/checkout@v4
+      - name: Get upstream Alcedo Studio
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref }}
+          SOURCE_REPOSITORY: ${{ inputs.source_repository }}
+        run: |
+          [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || exit 1
+          git clone --filter=blob:none "https://github.com/${SOURCE_REPOSITORY}.git" upstream
+          git -C upstream checkout "$UPSTREAM_REF"
+          mkdir -p upstream/scripts/intel_port
+          cp scripts/intel_port/metal_cache.py scripts/intel_port/apply_port.py upstream/scripts/intel_port/
+          python3 scripts/intel_port/apply_port.py --root upstream
+      - name: Select Metal compiler
+        run: |
+          xcodebuild -version
+          if ! xcrun --sdk macosx --find metal; then
+            sudo xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun --sdk macosx --find metal
+          xcrun --sdk macosx --find metallib
+      - name: Compile all original Metal modules once
+        run: |
+          python3 scripts/intel_port/metal_cache.py compile \
+            --root upstream --out "$RUNNER_TEMP/alcedo-metal" \
+            --deployment 13.3 \
+            --archive "$RUNNER_TEMP/alcedo-intel-metal.zip"
+      - name: Publish persistent shader package as GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          tag="intel-metal-${GITHUB_SHA:0:12}"
+          if ! gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$REPO" \
+              --title "Reusable Intel Metal libraries (${GITHUB_SHA:0:12})" \
+              --notes "Compiled on macOS Intel runner. Binary shaders for Alcedo Studio. macOS 13.3 minimum. Source hashes and licensing requirements are included in the manifest. Rebuild after editing shader source or included headers." \
+              --target "$GITHUB_SHA"
+          fi
+          gh release upload "$tag" "$RUNNER_TEMP/alcedo-intel-metal.zip" \
+            --repo "$REPO" --clobber
+          echo "Published reusable Metal package in GitHub Release $tag"
+      - name: Also expose short-term workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reusable-intel-metal
+          path: ${{ runner.temp }}/alcedo-intel-metal.zip
+          retention-days: 30

@@ -1,0 +1,32 @@
+test_archive_rejects_unexpected_file (test_port.PortTests.test_archive_rejects_unexpected_file) ... ok
+test_cache_manifest_defensively_requires_expected_macos_minimum (test_port.PortTests.test_cache_manifest_defensively_requires_expected_macos_minimum) ... ok
+test_compiler_pack_and_extract_via_stub (test_port.PortTests.test_compiler_pack_and_extract_via_stub) ... Compiling u0.metallib
+Compiling u1.metallib
+Compiling u10.metallib
+Compiling u11.metallib
+Compiling u12.metallib
+Compiling u13.metallib
+Compiling u14.metallib
+Compiling u15.metallib
+Compiling u16.metallib
+Compiling u2.metallib
+Compiling u3.metallib
+Compiling u4.metallib
+Compiling u5.metallib
+Compiling u6.metallib
+Compiling u7.metallib
+Compiling u8.metallib
+Compiling u9.metallib
+Verified 17 Metal libraries against current shader sources and dependencies.
+Archived reusable Metal package: /tmp/tmp_qvg1qw0/metal.zip
+Verified 17 Metal libraries against current shader sources and dependencies.
+ok
+test_detect_library_set (test_port.PortTests.test_detect_library_set) ... ok
+test_patch_preserves_original_path (test_port.PortTests.test_patch_preserves_original_path) ... ok
+test_verify_detects_changed_shader_and_corruption (test_port.PortTests.test_verify_detects_changed_shader_and_corruption) ... Verified 17 Metal libraries against current shader sources and dependencies.
+ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.045s
+
+OK
