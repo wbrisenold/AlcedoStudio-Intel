@@ -73,6 +73,8 @@ jobs:
             libomp libarchive grpc protobuf openblas
       - name: Configure Intel-native Qt application using prebuilt Metal
         run: |
+          # Sidecar off: ort-sys (Rust ONNX Runtime) ships no x86_64-apple-darwin
+          # binaries (ORT dropped macOS Intel after 1.23), so cargo build fails on Intel.
           cmake -S upstream -B upstream/build/intel-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
@@ -83,6 +85,7 @@ jobs:
             -DALCEDO_ENABLE_METAL=ON -DALCEDO_ENABLE_CUDA=OFF \
             -DALCEDO_ENABLE_WEBGPU=OFF -DALCEDO_MACOS_BUNDLE=ON \
             -DALCEDO_BUILD_TESTS=OFF \
+            -DALCEDO_BUILD_SEMANTIC_SIDECAR=OFF \
             -DALCEDO_REQUIRE_UPDATE_KEY=OFF \
             -DPUERHLAB_USE_BUNDLED_LIBRAW=ON \
             -DPUERHLAB_USE_SYSTEM_GRPC_PROTOBUF=ON \
