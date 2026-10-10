@@ -180,30 +180,34 @@ endif()'''
         with self.assertRaises(RuntimeError): macpkg.patch(converted)
 
     def test_bundle_libs_updates_versions_and_adds_missing(self):
-        fixture='''        # Ensure the GCC runtime chain exists in the bundle.
-        _alcedo_copy_lib_if_missing(\\"libgfortran.5.dylib\\")
-        _alcedo_copy_lib_if_missing(\\"libquadmath.0.dylib\\")
-        _alcedo_copy_lib_if_missing(\\"libgcc_s.1.1.dylib\\")
-
-        # Patch libgfortran to use sibling dylibs in Frameworks.
-
-        set(_alcedo_dylib_ids
-            \\"libopencv_core.412.dylib=@rpath/libopencv_core.412.dylib\\"
-            \\"libopencv_imgproc.412.dylib=@rpath/libopencv_imgproc.412.dylib\\"
-            \\"libopencv_imgcodecs.412.dylib=@rpath/libopencv_imgcodecs.412.dylib\\"
-            \\"libopencv_features2d.412.dylib=@rpath/libopencv_features2d.412.dylib\\"
-            \\"libopencv_flann.412.dylib=@rpath/libopencv_flann.412.dylib\\"
-            \\"libgcc_s.1.1.dylib=@rpath/libgcc_s.1.1.dylib\\"
-            \\"libjxl_cms.0.11.2.dylib=@rpath/libjxl_cms.0.11.dylib\\"
-        )'''
-        converted=bundle.patch(fixture)
+        # Use real upstream CMakeLists.txt which contains all three original anchors
+        import urllib.request
+        url='https://raw.githubusercontent.com/zidage/AlcedoStudio/d20a14b0c5bc54fac50b163173cb352bfe24be0f/CMakeLists.txt'
+        text=urllib.request.urlopen(url, timeout=10).read().decode()
+        converted=bundle.patch(text)
         self.assertIn('libopencv_core.500.dylib', converted)
         self.assertIn('libopencv_geometry.500.dylib', converted)
         self.assertIn('libjxl_cms.0.12.dylib', converted)
         self.assertIn('libexpat.1.dylib', converted)
         self.assertIn('libbrotlicommon.1.dylib', converted)
-        self.assertIn('libexpat.1.dylib\\")', converted)
-        self.assertIn('libbrotlicommon.1.dylib\\")', converted)
+        self.assertIn('_alcedo_copy_lib_if_missing(\\"libexpat.1.dylib\\")', converted)
+        self.assertIn('_alcedo_copy_lib_if_missing(\\"libbrotlicommon.1.dylib\\")', converted)
+        self.assertIn('_alcedo_copy_fw_if_missing', converted)
+        self.assertIn('QtDBus', converted)
+        self.assertIn('QtWidgets', converted)
+        with self.assertRaises(RuntimeError): bundle.patch(converted)
+
+    def test_bundle_libs_copies_qt_frameworks(self):
+        # Use real upstream CMakeLists.txt which contains all three original anchors
+        import urllib.request
+        url='https://raw.githubusercontent.com/zidage/AlcedoStudio/d20a14b0c5bc54fac50b163173cb352bfe24be0f/CMakeLists.txt'
+        text=urllib.request.urlopen(url, timeout=10).read().decode()
+        converted=bundle.patch(text)
+        self.assertIn('_alcedo_copy_fw_if_missing', converted)
+        self.assertIn('QtDBus', converted)
+        self.assertIn('QtWidgets', converted)
+        self.assertIn('foreach(_fw IN ITEMS', converted)
+        self.assertIn('install_name_tool -id "@rpath/', converted)
         with self.assertRaises(RuntimeError): bundle.patch(converted)
 
 if __name__=='__main__': unittest.main(verbosity=2)

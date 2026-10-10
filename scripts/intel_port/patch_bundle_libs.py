@@ -52,6 +52,71 @@ def patch(text: str) -> str:
         raise RuntimeError('GCC runtime copy anchor changed')
     text = text.replace(old, new, 1)
 
+    # Add Qt framework copy function and invocations after the lib loop
+    old = r'''        message(STATUS \"Patched GCC runtime chain for macOS bundle\")
+        "
+    )
+
+    if(ALCEDO_MACOS_VERIFY_BUNDLE_DEPS)'''
+    new = r'''        message(STATUS \"Patched GCC runtime chain for macOS bundle\")
+
+        # Intel CI: copy Qt frameworks that macdeployqt misses
+        function(_alcedo_copy_fw_if_missing _fw_name)
+            set(_src_dir "${CMAKE_PREFIX_PATH}/lib/${_fw_name}.framework")
+            if(EXISTS "${_src_dir}")
+                set(_dst_dir "${_alcedo_fw_dir}/${_fw_name}.framework")
+                if(NOT EXISTS "${_dst_dir}")
+                    execute_process(
+                        COMMAND /bin/cp -Rf "${_src_dir}" "${_dst_dir}"
+                        RESULT_VARIABLE _copy_result
+                    )
+                    if(NOT _copy_result EQUAL 0)
+                        message(FATAL_ERROR "Failed to copy ${_src_dir} -> ${_dst_dir}")
+                    endif()
+                endif()
+            endif()
+        endfunction()
+
+        _alcedo_copy_fw_if_missing("QtDBus")
+        _alcedo_copy_fw_if_missing("QtQmlMeta")
+        _alcedo_copy_fw_if_missing("QtQmlModels")
+        _alcedo_copy_fw_if_missing("QtQmlWorkerScript")
+        _alcedo_copy_fw_if_missing("QtQuickControls2Impl")
+        _alcedo_copy_fw_if_missing("QtQuickDialogs2QuickImpl")
+        _alcedo_copy_fw_if_missing("QtQuickDialogs2Utils")
+        _alcedo_copy_fw_if_missing("QtQuickTemplates2")
+        _alcedo_copy_fw_if_missing("QtSvg")
+        _alcedo_copy_fw_if_missing("QtWidgets")
+
+        # Fix rpaths inside copied Qt frameworks
+        foreach(_fw IN ITEMS QtDBus QtQmlMeta QtQmlModels QtQmlWorkerScript QtQuickControls2Impl QtQuickDialogs2QuickImpl QtQuickDialogs2Utils QtQuickTemplates2 QtSvg QtWidgets)
+            set(_fw_bin "${_alcedo_fw_dir}/${_fw}.framework/${_fw}")
+            if(EXISTS "${_fw_bin}")
+                execute_process(COMMAND /bin/chmod u+w "${_fw_bin}" ERROR_QUIET)
+                execute_process(
+                    COMMAND /usr/bin/install_name_tool -id "@rpath/${_fw}.framework/${_fw}" "${_fw_bin}"
+                    RESULT_VARIABLE _id_result
+                )
+                if(NOT _id_result EQUAL 0)
+                    message(WARNING "Failed to set install name for ${_fw_bin}")
+                endif()
+                execute_process(
+                    COMMAND /usr/bin/install_name_tool -change ${CMAKE_PREFIX_PATH}/lib/${_fw}.framework/${_fw} @rpath/${_fw}.framework/${_fw} "${_fw_bin}"
+                    RESULT_VARIABLE _change_result
+                    ERROR_QUIET
+                )
+            endif()
+        endforeach()
+
+        message(STATUS \"Patched GCC runtime chain for macOS bundle\")
+        "
+    )
+
+    if(ALCEDO_MACOS_VERIFY_BUNDLE_DEPS)'''
+    if text.count(old) != 1:
+        raise RuntimeError('GCC runtime status message anchor changed')
+    text = text.replace(old, new, 1)
+
     return text
 
 
