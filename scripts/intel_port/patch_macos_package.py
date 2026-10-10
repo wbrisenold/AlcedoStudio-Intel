@@ -8,8 +8,8 @@ REL = Path('CMakeLists.txt')
 
 
 def patch(text: str) -> str:
-    if 'macdeployqt' in text:
-        raise RuntimeError('macdeployqt already present in CMakeLists.txt')
+    if 'Qt6_MACDEPLOYQT_EXECUTABLE' in text:
+        raise RuntimeError('macdeployqt injection already present')
     anchor = '''    add_custom_target(macos_package
         COMMAND "${CMAKE_COMMAND}" -E rm -rf
                 "${CMAKE_INSTALL_PREFIX}/${ALCEDO_MACOS_BUNDLE_NAME}.app"

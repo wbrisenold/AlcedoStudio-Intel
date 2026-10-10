@@ -23,7 +23,7 @@ if ! grep -q 'Intel port builds without the semantic sidecar' "$dest/scripts/ver
 else
   echo 'Existing sidecar-skip packaging checks detected. No double patch.'
 fi
-if ! grep -q 'macdeployqt' "$dest/CMakeLists.txt"; then
+if ! grep -q 'Qt6_MACDEPLOYQT_EXECUTABLE' "$dest/CMakeLists.txt"; then
   python3 "$here/scripts/intel_port/patch_macos_package.py" --root "$dest"
 else
   echo 'Existing macdeployqt injection detected. No double patch.'
