@@ -48,6 +48,8 @@ jobs:
           cp scripts/intel_port/*.py upstream/scripts/intel_port/
           python3 scripts/intel_port/apply_port.py --root upstream
           python3 scripts/intel_port/patch_verify_sidecar.py --root upstream
+          python3 scripts/intel_port/patch_macos_package.py --root upstream
+          python3 scripts/intel_port/patch_bundle_libs.py --root upstream
       - name: Download permanent reusable Metal release
         env:
           GH_TOKEN: ${{ github.token }}

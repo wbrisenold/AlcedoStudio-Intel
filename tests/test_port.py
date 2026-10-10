@@ -18,6 +18,8 @@ def load(name):
 metal=load('metal_cache')
 patcher=load('apply_port')
 sidecar=load('patch_verify_sidecar')
+macpkg=load('patch_macos_package')
+bundle=load('patch_bundle_libs')
 
 class PortTests(unittest.TestCase):
     def setUp(self):
@@ -150,5 +152,58 @@ fi
         self.assertIn('assert_file "${macos_dir}/configs/prompts/image_analysis_system_prompts.json"',converted)
         self.assertIn('otool -L "$mind_exe" | grep -q',converted)
         with self.assertRaises(RuntimeError): sidecar.patch(converted)
+
+    def test_macos_package_injects_macdeployqt(self):
+        fixture='''include(CPack)
+
+if(APPLE AND ALCEDO_MACOS_BUNDLE AND TARGET ${ALCEDO_MAIN_BIN})
+    add_custom_target(macos_package
+        COMMAND "${CMAKE_COMMAND}" -E rm -rf
+                "${CMAKE_INSTALL_PREFIX}/${ALCEDO_MACOS_BUNDLE_NAME}.app"
+        COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"
+                --component "${ALCEDO_PACKAGE_INSTALL_COMPONENT}"
+        COMMAND "${CMAKE_SOURCE_DIR}/scripts/verify_macos_install_tree.sh"
+                --install-dir "${CMAKE_INSTALL_PREFIX}"
+                --bundle-name "${ALCEDO_MACOS_BUNDLE_NAME}"
+        COMMAND "${CMAKE_CPACK_COMMAND}" --config "${CMAKE_BINARY_DIR}/CPackConfig.cmake" -B "${CMAKE_INSTALL_PREFIX}"
+        DEPENDS ${ALCEDO_MAIN_BIN}
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+        COMMENT "Installing ${ALCEDO_MACOS_BUNDLE_NAME}.app and creating macOS packages"
+        USES_TERMINAL
+    )
+endif()'''
+        converted=macpkg.patch(fixture)
+        self.assertIn('macdeployqt', converted)
+        self.assertIn('Qt6_MACDEPLOYQT_EXECUTABLE', converted)
+        self.assertIn('find_program', converted)
+        self.assertIn('-verbose=2 -always-overwrite -no-strip -codesign=-', converted)
+        with self.assertRaises(RuntimeError): macpkg.patch(converted)
+
+    def test_bundle_libs_updates_versions_and_adds_missing(self):
+        fixture='''        # Ensure the GCC runtime chain exists in the bundle.
+        _alcedo_copy_lib_if_missing(\\"libgfortran.5.dylib\\")
+        _alcedo_copy_lib_if_missing(\\"libquadmath.0.dylib\\")
+        _alcedo_copy_lib_if_missing(\\"libgcc_s.1.1.dylib\\")
+
+        # Patch libgfortran to use sibling dylibs in Frameworks.
+
+        set(_alcedo_dylib_ids
+            \\"libopencv_core.412.dylib=@rpath/libopencv_core.412.dylib\\"
+            \\"libopencv_imgproc.412.dylib=@rpath/libopencv_imgproc.412.dylib\\"
+            \\"libopencv_imgcodecs.412.dylib=@rpath/libopencv_imgcodecs.412.dylib\\"
+            \\"libopencv_features2d.412.dylib=@rpath/libopencv_features2d.412.dylib\\"
+            \\"libopencv_flann.412.dylib=@rpath/libopencv_flann.412.dylib\\"
+            \\"libgcc_s.1.1.dylib=@rpath/libgcc_s.1.1.dylib\\"
+            \\"libjxl_cms.0.11.2.dylib=@rpath/libjxl_cms.0.11.dylib\\"
+        )'''
+        converted=bundle.patch(fixture)
+        self.assertIn('libopencv_core.500.dylib', converted)
+        self.assertIn('libopencv_geometry.500.dylib', converted)
+        self.assertIn('libjxl_cms.0.12.dylib', converted)
+        self.assertIn('libexpat.1.dylib', converted)
+        self.assertIn('libbrotlicommon.1.dylib', converted)
+        self.assertIn('libexpat.1.dylib\\")', converted)
+        self.assertIn('libbrotlicommon.1.dylib\\")', converted)
+        with self.assertRaises(RuntimeError): bundle.patch(converted)
 
 if __name__=='__main__': unittest.main(verbosity=2)
