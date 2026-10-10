@@ -9,6 +9,10 @@ cache_dir="${ALCEDO_METAL_CACHE_DIR:-$here/precompiled-metal}"
 [[ "$(uname -m)" == x86_64 ]] || { echo 'This local builder targets Intel x86_64 Macs'; exit 1; }
 command -v cmake >/dev/null || { echo 'Install cmake and ninja using Homebrew first'; exit 1; }
 command -v brew >/dev/null || { echo 'Homebrew is required for native dependencies'; exit 1; }
+brew install cmake ninja qt opencv opencolorio duckdb exiv2 glib \
+  libraw little-cms2 highway openimageio pkg-config xxhash eigen \
+  libomp libarchive grpc protobuf openblas expat brotli jpeg-xl \
+  graphite2 dbus
 if [[ ! -d "$source_dir" ]]; then
   bash "$here/scripts/intel_port/bootstrap_local.sh" "$source_dir"
 fi

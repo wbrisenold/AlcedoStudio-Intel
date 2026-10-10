@@ -73,7 +73,8 @@ jobs:
         run: |
           brew install cmake ninja qt opencv opencolorio duckdb exiv2 glib \
             libraw little-cms2 highway openimageio pkg-config xxhash eigen \
-            libomp libarchive grpc protobuf openblas
+            libomp libarchive grpc protobuf openblas expat brotli jpeg-xl \
+            graphite2 dbus
       - name: Configure Intel-native Qt application using prebuilt Metal
         run: |
           # Sidecar off: ort-sys (Rust ONNX Runtime) ships no x86_64-apple-darwin
