@@ -20,6 +20,7 @@ if [[ ! -f "$cache_dir/alcedo-metal-manifest.json" ]]; then
 fi
 python3 "$here/scripts/intel_port/metal_cache.py" verify --root "$source_dir" --cache "$cache_dir"
 qt_root="$(brew --prefix qt)"
+hb="$(brew --prefix)"
 cmake -S "$source_dir" -B "$source_dir/build/intel-local" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES=x86_64 \
@@ -33,6 +34,7 @@ cmake -S "$source_dir" -B "$source_dir/build/intel-local" -G Ninja \
     -DPUERHLAB_USE_BUNDLED_LIBRAW=ON \
     -DPUERHLAB_USE_SYSTEM_GRPC_PROTOBUF=ON \
     -DALCEDO_QT_PREFIX="$qt_root" \
-    -DCMAKE_PREFIX_PATH="$qt_root"
+    -DCMAKE_PREFIX_PATH="$qt_root" \
+    -DALCEDO_LIBRARY_HINTS="${hb}/opt/expat/lib;${hb}/opt/brotli/lib;${hb}/opt/jpeg-xl/lib;${hb}/opt/opencv/lib;${hb}/opt/openimageio/lib;${hb}/opt/openexr/lib;${hb}/opt/libheif/lib;${hb}/opt/webp/lib;${hb}/opt/opencolorio/lib;${hb}/opt/tbb/lib;${hb}/opt/zstd/lib;${hb}/opt/graphite2/lib;${hb}/opt/dbus/lib"
 cmake --build "$source_dir/build/intel-local" --target alcedo_main alcedo_update_installer --parallel 4
 find "$source_dir/build/intel-local" -type d -name 'AlcedoStudio.app' -print

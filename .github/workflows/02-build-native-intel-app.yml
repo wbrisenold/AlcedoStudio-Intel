@@ -78,6 +78,7 @@ jobs:
         run: |
           # Sidecar off: ort-sys (Rust ONNX Runtime) ships no x86_64-apple-darwin
           # binaries (ORT dropped macOS Intel after 1.23), so cargo build fails on Intel.
+          HB="/usr/local"  # Homebrew prefix on macos-15-intel
           cmake -S upstream -B upstream/build/intel-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
@@ -93,7 +94,8 @@ jobs:
             -DPUERHLAB_USE_BUNDLED_LIBRAW=ON \
             -DPUERHLAB_USE_SYSTEM_GRPC_PROTOBUF=ON \
             -DALCEDO_QT_PREFIX="$(brew --prefix qt)" \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix openblas)"
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt);$(brew --prefix openblas)" \
+            -DALCEDO_LIBRARY_HINTS="${HB}/opt/expat/lib;${HB}/opt/brotli/lib;${HB}/opt/jpeg-xl/lib;${HB}/opt/opencv/lib;${HB}/opt/openimageio/lib;${HB}/opt/openexr/lib;${HB}/opt/libheif/lib;${HB}/opt/webp/lib;${HB}/opt/opencolorio/lib;${HB}/opt/tbb/lib;${HB}/opt/zstd/lib;${HB}/opt/brotli/lib;${HB}/opt/graphite2/lib;${HB}/opt/dbus/lib"
       - name: Build native Intel app without compiling any Metal source
         # alcedo_update_installer is installed by the bundle but is not a
         # dependency of alcedo_main, so package step needs it built explicitly.
